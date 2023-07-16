@@ -1,0 +1,35 @@
+{
+  "dependencies": {
+    "msgpack-lite": "^0.1.26",
+    "unify-emitter": "^1.1.3",
+    "zod": "^3.21.4"
+  },
+  "devDependencies": {
+    "@types/msgpack-lite": "^0.1.8",
+    "tsup": "^7.1.0",
+    "typescript": "^5.1.6"
+  },
+  "name": "moomooio-client",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build:compile": "tsup ./src/index.ts --format cjs,esm --dts",
+    "build:release": "pnpm run build:compile && pnpm run build:lint",
+    "build:publish": "pnpm run build:release && npm publish --access=public",
+    "build:lint": "tsc"
+  },
+  "keywords": [
+    "moomooio-client",
+    "wrapper-api",
+    "game",
+    "moomoo.io",
+    "moomooio",
+    "client-side",
+    "api"
+  ],
+  "author": "eyadrealhim",
+  "license": "MIT",
+  "description": "MooMooIO-Client is a client-side wrapper API designed for the game MooMoo.io. This package aims to provide a simple yet powerful API for creating clones, mods, or plugins for MooMoo.io."
+}
