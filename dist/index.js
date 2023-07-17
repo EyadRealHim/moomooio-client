@@ -919,8 +919,8 @@ var _UpdateMiniMap = class _UpdateMiniMap {
     const result = [];
     const info = schema18.parse(data)[0];
     if (info instanceof Array)
-      for (let i = 0; i < info.length; i += 3) {
-        const content = info.slice(i, i + 3);
+      for (let i = 0; i < info.length; i += 2) {
+        const content = info.slice(i, i + 2);
         const chunk = chunkSchema4.parse(content);
         result.push({
           x: chunk[0],
@@ -3045,9 +3045,8 @@ var MAX_XP_GROWTH = 1.2;
 var maxXPRelativeToAge = (age) => {
   return START_MAX_XP * MAX_XP_GROWTH ** (age - 1);
 };
-var _currentAge, _currentXP, _maxXP, _currentUpgradeLevel, _upgradeLevel, _weaponKit, _itemsKit, _purchasedItems, _itemUsage, _hold, hold_fn;
+var _currentAge, _currentXP, _maxXP, _currentUpgradeLevel, _upgradeLevel, _weaponKit, _itemsKit, _purchasedItems, _itemUsage, _mapPoints, _leaderBoard, _hold, hold_fn;
 var MyPlayer = class extends Player {
-  // Key: ItemID, Value: ItemUsageCount
   constructor(connection) {
     super();
     this.connection = connection;
@@ -3079,6 +3078,9 @@ var MyPlayer = class extends Player {
       Hat: []
     });
     __privateAdd(this, _itemUsage, /* @__PURE__ */ new Map());
+    // Key: ItemID, Value: ItemUsageCount
+    __privateAdd(this, _mapPoints, []);
+    __privateAdd(this, _leaderBoard, []);
     this.clientPacketOrganizer = new ClientPacketOrganizer(connection);
   }
   clear() {
@@ -3146,6 +3148,12 @@ var MyPlayer = class extends Player {
   __updateResource(packet) {
     this.resource[packet.resourceType] = packet.resourceValue;
   }
+  __updateMiniMap(packet) {
+    __privateSet(this, _mapPoints, structuredClone(packet.points));
+  }
+  __updateLeaderBoard(packet) {
+    __privateSet(this, _leaderBoard, structuredClone(packet.members));
+  }
   /**
    * @description This packet is used to create your character in the game.
    * @param name The name of your character.
@@ -3190,7 +3198,6 @@ var MyPlayer = class extends Player {
       return this;
     if (__privateGet(this, _purchasedItems)[itemType].includes(item.id))
       return this;
-    console.log("purchase", item);
     this.clientPacketOrganizer.buy(item.id, itemType).parseLast();
     return this;
   }
@@ -3343,6 +3350,12 @@ var MyPlayer = class extends Player {
   get maxXP() {
     return __privateGet(this, _maxXP);
   }
+  get mapPoints() {
+    return __privateGet(this, _mapPoints);
+  }
+  get leaderBoard() {
+    return __privateGet(this, _leaderBoard);
+  }
   get kit() {
     return [__privateGet(this, _weaponKit), __privateGet(this, _itemsKit)];
   }
@@ -3385,6 +3398,8 @@ _weaponKit = new WeakMap();
 _itemsKit = new WeakMap();
 _purchasedItems = new WeakMap();
 _itemUsage = new WeakMap();
+_mapPoints = new WeakMap();
+_leaderBoard = new WeakMap();
 _hold = new WeakSet();
 hold_fn = function(itemType, itemName) {
   var _a;
@@ -3478,6 +3493,10 @@ var GameObject = class extends import_unify_emitter3.default {
     __privateSet(this, _data, (_b = items_default[(_a = __privateGet(this, _dataIndex)) != null ? _a : -1]) != null ? _b : null);
     __privateSet(this, _isInitialized2, true);
   }
+  clear() {
+    this.removeListeners();
+    __privateSet(this, _data, null);
+  }
   get identity() {
     var _a, _b;
     const biomeID = this.y >= config_default.mapScale - config_default.snowBiomeTop ? 2 : this.y <= config_default.snowBiomeTop ? 1 : 0;
@@ -3556,6 +3575,126 @@ _y2 = new WeakMap();
 _data = new WeakMap();
 _owner = new WeakMap();
 
+// src/instance/GameAI.ts
+var import_unify_emitter4 = __toESM(require("unify-emitter"));
+var _uniqueName, _health2, _type2, _angle2, _id2, _x3, _y3, _isInitialized3;
+var GameAI = class extends import_unify_emitter4.default {
+  constructor() {
+    super();
+    __privateAdd(this, _uniqueName, void 0);
+    __privateAdd(this, _health2, void 0);
+    __privateAdd(this, _type2, void 0);
+    __privateAdd(this, _angle2, void 0);
+    __privateAdd(this, _id2, void 0);
+    __privateAdd(this, _x3, void 0);
+    __privateAdd(this, _y3, void 0);
+    __privateAdd(this, _isInitialized3, false);
+    __privateSet(this, _health2, new PropertyTracker(0));
+    __privateSet(this, _angle2, new PropertyTracker(0));
+    __privateSet(this, _x3, new PropertyTracker(0));
+    __privateSet(this, _y3, new PropertyTracker(0));
+  }
+  init(gameObjectData) {
+    __privateSet(this, _uniqueName, gameObjectData.uniqueName);
+    __privateSet(this, _type2, gameObjectData.type);
+    __privateSet(this, _id2, gameObjectData.id);
+    __privateGet(this, _angle2).set(gameObjectData.rotation);
+    __privateGet(this, _health2).set(gameObjectData.health);
+    __privateGet(this, _x3).set(gameObjectData.x);
+    __privateGet(this, _y3).set(gameObjectData.y);
+    if (__privateGet(this, _isInitialized3)) {
+      if (__privateGet(this, _x3).isDiff() || __privateGet(this, _y3).isDiff()) {
+        const deltaX = __privateGet(this, _x3).current - (__privateGet(this, _x3).previous || 0);
+        const deltaY = __privateGet(this, _y3).current - (__privateGet(this, _y3).previous || 0);
+        this.emit("move", {
+          direction: Math.atan2(deltaY, deltaX),
+          x: this.x,
+          y: this.y,
+          player: this
+        });
+      }
+      if (__privateGet(this, _angle2).isDiff()) {
+        this.emit("rotate", {
+          angle: this.angle,
+          player: this
+        });
+      }
+      this.emit("update", this);
+    }
+    __privateSet(this, _isInitialized3, true);
+  }
+  get identity() {
+    if (__privateGet(this, _type2) == 0)
+      return "Cow";
+    if (__privateGet(this, _type2) == 1)
+      return "Pig";
+    if (__privateGet(this, _type2) == 2)
+      return "Bull";
+    if (__privateGet(this, _type2) == 3)
+      return "Bully";
+    if (__privateGet(this, _type2) == 4)
+      return "Wolf";
+    if (__privateGet(this, _type2) == 5)
+      return "Quack";
+    if (__privateGet(this, _type2) == 6)
+      return "Moostafa";
+    if (__privateGet(this, _type2) == 7)
+      return "Treasure";
+    if (__privateGet(this, _type2) == 8)
+      return "Moofie";
+    return "Unknown";
+  }
+  get isBoss() {
+    return __privateGet(this, _type2) == 8 || __privateGet(this, _type2) == 6;
+  }
+  get isFriendly() {
+    return __privateGet(this, _type2) == 0 || __privateGet(this, _type2) == 1 || __privateGet(this, _type2) == 5 || __privateGet(this, _type2) == 7;
+  }
+  clear() {
+    this.removeListeners();
+  }
+  /* prettier-ignore */
+  get isInitialized() {
+    return __privateGet(this, _isInitialized3);
+  }
+  /* prettier-ignore */
+  get uniqueName() {
+    return __privateGet(this, _uniqueName);
+  }
+  /* prettier-ignore */
+  get angle() {
+    return __privateGet(this, _angle2).current;
+  }
+  /* prettier-ignore */
+  get health() {
+    return __privateGet(this, _health2).current;
+  }
+  /* prettier-ignore */
+  get type() {
+    return __privateGet(this, _type2);
+  }
+  /* prettier-ignore */
+  get id() {
+    return __privateGet(this, _id2);
+  }
+  /* prettier-ignore */
+  get x() {
+    return __privateGet(this, _x3).current;
+  }
+  /* prettier-ignore */
+  get y() {
+    return __privateGet(this, _y3).current;
+  }
+};
+_uniqueName = new WeakMap();
+_health2 = new WeakMap();
+_type2 = new WeakMap();
+_angle2 = new WeakMap();
+_id2 = new WeakMap();
+_x3 = new WeakMap();
+_y3 = new WeakMap();
+_isInitialized3 = new WeakMap();
+
 // src/MooMooIOClient.ts
 var MooMooIOClient = class {
   constructor() {
@@ -3564,6 +3703,7 @@ var MooMooIOClient = class {
     // Require Clear
     this.myPlayer = new MyPlayer(this.connection);
     this.players = /* @__PURE__ */ new Map();
+    this.gameAIs = /* @__PURE__ */ new Map();
     this.teams = /* @__PURE__ */ new Map();
     this.gameObjects = [];
     this.init();
@@ -3579,13 +3719,28 @@ var MooMooIOClient = class {
     this.clear();
   }
   clear() {
+    this.gameObjects.forEach((gameObject) => gameObject.clear());
+    this.gameAIs.forEach((gameAI) => gameAI.clear());
     this.players.forEach((player) => player.clear());
-    this.gameObjects = [];
+    this.players.clear();
+    this.gameAIs.clear();
     this.teams.clear();
+    this.gameObjects = [];
+  }
+  __update() {
   }
   onMessage(packet) {
-    var _a;
+    var _a, _b;
     switch (packet.PACKET_NAME) {
+      case "UpdateGameAI": {
+        for (let aiData of packet.data) {
+          const ai = (_a = this.gameAIs.get(aiData.id)) != null ? _a : new GameAI();
+          ai.init(aiData);
+          this.gameAIs.set(ai.id, ai);
+          console.log(ai.identity, ai.isFriendly, ai.isBoss);
+        }
+        break;
+      }
       case "SetObjectsData": {
         for (let gameObjectData of packet.objects) {
           const gameObject = new GameObject();
@@ -3611,6 +3766,14 @@ var MooMooIOClient = class {
         const gameObject = this.gameObjects.find((gameObject2) => gameObject2.id == packet.objectID);
         gameObject == null ? void 0 : gameObject.emit("strike", {
           forceDirection: packet.forceDirection
+        });
+        break;
+      }
+      case "TurretShoot": {
+        const turret = this.gameObjects.find((gameObject) => gameObject.id == packet.turretID);
+        turret == null ? void 0 : turret.emit("shoot", {
+          direction: packet.angle,
+          turret
         });
         break;
       }
@@ -3641,6 +3804,14 @@ var MooMooIOClient = class {
       }
       case "DeleteTeam": {
         this.teams.delete(packet.title);
+        break;
+      }
+      case "UpdateLeaderBoard": {
+        this.myPlayer.__updateLeaderBoard(packet);
+        break;
+      }
+      case "UpdateMiniMap": {
+        this.myPlayer.__updateMiniMap(packet);
         break;
       }
       case "UpdateResource": {
@@ -3711,8 +3882,9 @@ var MooMooIOClient = class {
       }
       case "UpdatePlayers": {
         for (let playerData of packet.players) {
-          (_a = this.players.get(playerData.playerID)) == null ? void 0 : _a.update(playerData);
+          (_b = this.players.get(playerData.playerID)) == null ? void 0 : _b.update(playerData);
         }
+        this.__update();
         break;
       }
       case "PlayerDisconnect": {

@@ -8,9 +8,9 @@ import GameObject from "./GameObject";
 export interface PlayerEvents {
   move: {
     /**
-     * The direction where the player is moving (in radians) or `null` which mean player stops move
+     * The direction where the player is moving (in radians) 
      */
-    direction: number | null;
+    direction: number 
     /**
      * The player instance
      */

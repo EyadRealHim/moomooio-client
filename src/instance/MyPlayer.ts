@@ -21,6 +21,8 @@ import UpdateItemStore from "../ServerPackets/UpdateItemStore";
 import UpdateItemUsage from "../ServerPackets/UpdateItemUsage";
 import getGroup from "../utils/getGroup";
 import UpdateResource from "../ServerPackets/UpdateResource";
+import UpdateMiniMap, { Point2D } from "../ServerPackets/UpdateMiniMap";
+import UpdateLeaderBoard, { LeaderBoardMember } from "../ServerPackets/UpdateLeaderBoard";
 
 const START_MAX_XP = 300;
 const MAX_XP_GROWTH = 1.2;
@@ -103,6 +105,8 @@ export default class MyPlayer extends Player<MyPlayerEvents> {
     Hat: [] as number[],
   };
   #itemUsage = new Map<number, number>(); // Key: ItemID, Value: ItemUsageCount
+  #mapPoints: Point2D[] = [];
+  #leaderBoard: LeaderBoardMember[] = [];
 
   constructor(readonly connection: MooMooIOConnection) {
     super();
@@ -193,6 +197,14 @@ export default class MyPlayer extends Player<MyPlayerEvents> {
     this.resource[packet.resourceType] = packet.resourceValue;
   }
 
+  __updateMiniMap(packet: UpdateMiniMap) {
+    this.#mapPoints = structuredClone(packet.points);
+  }
+
+  __updateLeaderBoard(packet: UpdateLeaderBoard) {
+    this.#leaderBoard = structuredClone(packet.members);
+  }
+
   /**
    * @description This packet is used to create your character in the game.
    * @param name The name of your character.
@@ -255,8 +267,6 @@ export default class MyPlayer extends Player<MyPlayerEvents> {
     if (item.price > this.resource.points) return this;
 
     if (this.#purchasedItems[itemType].includes(item.id)) return this;
-
-    console.log("purchase", item);
 
     this.clientPacketOrganizer.buy(item.id, itemType).parseLast();
     return this;
@@ -550,6 +560,14 @@ export default class MyPlayer extends Player<MyPlayerEvents> {
 
   get maxXP() {
     return this.#maxXP;
+  }
+
+  get mapPoints() {
+    return this.#mapPoints;
+  }
+
+  get leaderBoard() {
+    return this.#leaderBoard;
   }
 
   get kit() {

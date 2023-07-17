@@ -7,7 +7,7 @@ const chunkSchema = z.tuple([z.number(), z.number()]);
  * @member `x` represents the point's position on the x-axis.
  * @member `y` represents the point's position on the y-axis.
  */
-interface Point2D {
+export interface Point2D {
   readonly x: number;
   readonly y: number;
 }
@@ -32,8 +32,8 @@ export default class UpdateMiniMap {
     const info = schema.parse(data)[0];
 
     if (info instanceof Array)
-      for (let i = 0; i < info.length; i += 3) {
-        const content = info.slice(i, i + 3);
+      for (let i = 0; i < info.length; i += 2) {
+        const content = info.slice(i, i + 2);
         const chunk = chunkSchema.parse(content);
 
         result.push({

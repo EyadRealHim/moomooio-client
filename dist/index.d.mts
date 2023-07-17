@@ -461,6 +461,16 @@ type GameObjectEvents = {
          */
         forceDirection: number;
     };
+    shoot: {
+        /**
+         * the turret who does the shoot
+         */
+        turret: ThisType<GameObject>;
+        /**
+         *  indicates the current angle the turret is facing (in radian).
+         */
+        direction: number;
+    };
 };
 /**
  * @member `ownerID` is a special code that identifies the object who owns the object.
@@ -476,6 +486,7 @@ type GameObjectEvents = {
 declare class GameObject extends UnifyEmitter<GameObjectEvents> {
     #private;
     init(gameObjectData: GameObjectData): void;
+    clear(): void;
     get identity(): (typeof _default$6)[number]["name"] | "tree" | "bush" | "rock" | "gold" | "cactus" | "unknown";
     __auth(playerOrPlayers: PlayerType | PlayerType[]): boolean;
     get isInitialized(): boolean;
@@ -505,7 +516,9 @@ declare class GameObject extends UnifyEmitter<GameObjectEvents> {
         readonly req: readonly [readonly ["food", 15]];
         readonly scale: 27;
         readonly holdOffset: 15;
-        readonly id: 1;
+        readonly id: 1; /**
+         * the turret who does the shoot
+         */
     } | {
         readonly age: 7;
         readonly group: 0;
@@ -799,9 +812,9 @@ declare class GameObject extends UnifyEmitter<GameObjectEvents> {
 interface PlayerEvents {
     move: {
         /**
-         * The direction where the player is moving (in radians) or `null` which mean player stops move
+         * The direction where the player is moving (in radians)
          */
-        direction: number | null;
+        direction: number;
         /**
          * The player instance
          */
@@ -2544,6 +2557,8 @@ declare class MyPlayer extends Player<MyPlayerEvents> {
     __updateItemStore(packet: UpdateItemStore): void;
     __updateItemUsage(packet: UpdateItemUsage): void;
     __updateResource(packet: UpdateResource): void;
+    __updateMiniMap(packet: UpdateMiniMap): void;
+    __updateLeaderBoard(packet: UpdateLeaderBoard): void;
     /**
      * @description This packet is used to create your character in the game.
      * @param name The name of your character.
@@ -2682,6 +2697,8 @@ declare class MyPlayer extends Player<MyPlayerEvents> {
     get currentAge(): number;
     get currentXP(): number;
     get maxXP(): number;
+    get mapPoints(): Point2D[];
+    get leaderBoard(): LeaderBoardMember[];
     get kit(): number[][];
     get primary(): number;
     get secondary(): number | null;
@@ -2694,16 +2711,91 @@ declare class MyPlayer extends Player<MyPlayerEvents> {
     get turretType(): number | undefined;
 }
 
+type GameAIEvents = {
+    move: {
+        /**
+         * The direction where the ai is moving (in radians)
+         */
+        direction: number;
+        /**
+         * The player instance
+         */
+        player: ThisType<GameAI>;
+        /**
+         * ai position on y-axis
+         */
+        y: number;
+        /**
+         * ai position on x-axis
+         */
+        x: number;
+    };
+    rotate: {
+        /**
+         * The angle where the ai is facing (in radians)
+         */
+        angle: number;
+        /**
+         * The ai instance
+         */
+        player: ThisType<GameAI>;
+    };
+    healthChange: {
+        /**
+         *  a boolean value indicating whether the ai is healing or taking damage.
+         */
+        isHealing: boolean;
+        /**
+         * a positive number representing the magnitude of the health change.
+         */
+        amount: number;
+        /**
+         * the ai instance who initiated the health change.
+         */
+        player: ThisType<GameAI>;
+    };
+    update: ThisType<GameAI>;
+};
+/**
+ * @member `uniqueName` If the AI is a cow or pig, this field will contain the name of the cow or pig.
+ * Otherwise, it will be `null`.
+ * @member `health` This field indicates the current health of the AI..
+ * @member `type` specifies the type of AI, which is used to fetch his meta data.
+ * @member `angle` indicates the rotation value of the AI.
+ * @member `id` serves as a unique identifier for the AI.
+ * @member `x` represents the player's position on the x-axis.
+ * @member `y` represents the player's position on the y-axis.
+ */
+declare class GameAI extends UnifyEmitter<GameAIEvents> {
+    #private;
+    constructor();
+    init(gameObjectData: GameAIData): void;
+    get identity(): "Unknown" | "Cow" | "Pig" | "Bull" | "Bully" | "Wolf" | "Quack" | "Moostafa" | "Treasure" | "Moofie";
+    get isBoss(): boolean;
+    get isFriendly(): boolean;
+    clear(): void;
+    get isInitialized(): boolean;
+    get uniqueName(): string | null;
+    get angle(): number;
+    get health(): number;
+    get type(): number;
+    get id(): number;
+    get x(): number;
+    get y(): number;
+}
+
 declare class MooMooIOClient {
     readonly connection: MooMooIOConnection;
     readonly myPlayer: MyPlayer;
     protected players: Map<number, PlayerType>;
+    protected gameAIs: Map<number, GameAI>;
     protected teams: Map<string, Team>;
     protected gameObjects: GameObject[];
     constructor();
     protected init(): void;
     destroy(): void;
     protected clear(): void;
+    protected __update(): void;
     protected onMessage(packet: ServerPacket): void;
 }
 

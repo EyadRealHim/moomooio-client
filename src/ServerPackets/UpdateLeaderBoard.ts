@@ -8,7 +8,7 @@ const chunkSchema = z.tuple([z.number(), z.string(), z.number()]);
  * @member `name` indicates the player's name.
  * @member `id` a special code that uniquely identifies the player.
  */
-interface LeaderBoardMember {
+export interface LeaderBoardMember {
   readonly score: number;
   readonly name: string;
   readonly id: number;

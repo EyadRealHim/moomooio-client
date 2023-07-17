@@ -4,6 +4,7 @@ import { ServerPacket } from "./ServerPackets";
 import MyPlayer from "./instance/MyPlayer";
 import Team from "./instance/Team";
 import GameObject from "./instance/GameObject";
+import GameAI from "./instance/GameAI";
 
 export default class MooMooIOClient {
   // Require Destroy
@@ -12,6 +13,7 @@ export default class MooMooIOClient {
   // Require Clear
   public readonly myPlayer = new MyPlayer(this.connection);
   protected players = new Map<number, PlayerType>();
+  protected gameAIs = new Map<number, GameAI>();
 
   protected teams = new Map<string, Team>();
   protected gameObjects: GameObject[] = [];
@@ -34,13 +36,33 @@ export default class MooMooIOClient {
   }
 
   protected clear() {
+    this.gameObjects.forEach((gameObject) => gameObject.clear());
+    this.gameAIs.forEach((gameAI) => gameAI.clear());
     this.players.forEach((player) => player.clear());
-    this.gameObjects = [];
+
+    this.players.clear();
+    this.gameAIs.clear();
     this.teams.clear();
+    this.gameObjects = [];
   }
+
+  protected __update() {}
 
   protected onMessage(packet: ServerPacket) {
     switch (packet.PACKET_NAME) {
+      // GameAI:
+      case "UpdateGameAI": {
+        for (let aiData of packet.data) {
+          const ai = this.gameAIs.get(aiData.id) ?? new GameAI();
+
+          ai.init(aiData);
+          this.gameAIs.set(ai.id, ai);
+
+          console.log(ai.identity, ai.isFriendly, ai.isBoss);
+        }
+        break;
+      }
+
       // GameObject:
       case "SetObjectsData": {
         for (let gameObjectData of packet.objects) {
@@ -73,6 +95,16 @@ export default class MooMooIOClient {
 
         gameObject?.emit("strike", {
           forceDirection: packet.forceDirection,
+        });
+        break;
+      }
+
+      case "TurretShoot": {
+        const turret = this.gameObjects.find((gameObject) => gameObject.id == packet.turretID);
+
+        turret?.emit("shoot", {
+          direction: packet.angle,
+          turret,
         });
         break;
       }
@@ -111,6 +143,14 @@ export default class MooMooIOClient {
       }
 
       // myPlayer Stuff:
+      case "UpdateLeaderBoard": {
+        this.myPlayer.__updateLeaderBoard(packet);
+        break;
+      }
+      case "UpdateMiniMap": {
+        this.myPlayer.__updateMiniMap(packet);
+        break;
+      }
       case "UpdateResource": {
         this.myPlayer.__updateResource(packet);
         break;
@@ -195,6 +235,8 @@ export default class MooMooIOClient {
         for (let playerData of packet.players) {
           this.players.get(playerData.playerID)?.update(playerData);
         }
+
+        this.__update();
         break;
       }
 

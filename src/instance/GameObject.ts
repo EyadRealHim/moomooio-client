@@ -12,6 +12,17 @@ type GameObjectEvents = {
      */
     forceDirection: number;
   };
+  shoot: {
+    /**
+     * the turret who does the shoot
+     */
+    turret: ThisType<GameObject>;
+
+    /**
+     *  indicates the current angle the turret is facing (in radian).
+     */
+    direction: number;
+  };
 };
 
 /**
@@ -52,6 +63,11 @@ export default class GameObject extends UnifyEmitter<GameObjectEvents> {
 
     this.#data = items[this.#dataIndex ?? -1] ?? null;
     this.#isInitialized = true;
+  }
+
+  clear() {
+    this.removeListeners();
+    this.#data = null;
   }
 
   get identity():

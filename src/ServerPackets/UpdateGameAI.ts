@@ -21,7 +21,7 @@ const chunkSchema = z.tuple([
  * @member `x` represents the player's position on the x-axis.
  * @member `y` represents the player's position on the y-axis.
  */
-interface GameAIData {
+export interface GameAIData {
   readonly uniqueName: string | null;
   readonly health: number;
   readonly type: number;
