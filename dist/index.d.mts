@@ -149,7 +149,7 @@ declare class SetObjectsData {
     static parse(data: unknown): SetObjectsData;
 }
 
-declare const _default$3: Readonly<{
+declare const _default$6: Readonly<{
     readonly age: -1;
     readonly group: 0;
     readonly name: "apple";
@@ -476,7 +476,7 @@ type GameObjectEvents = {
 declare class GameObject extends UnifyEmitter<GameObjectEvents> {
     #private;
     init(gameObjectData: GameObjectData): void;
-    get identity(): (typeof _default$3)[number]["name"] | "tree" | "bush" | "rock" | "gold" | "cactus" | "unknown";
+    get identity(): (typeof _default$6)[number]["name"] | "tree" | "bush" | "rock" | "gold" | "cactus" | "unknown";
     __auth(playerOrPlayers: PlayerType | PlayerType[]): boolean;
     get isInitialized(): boolean;
     get dataIndex(): number | null;
@@ -863,6 +863,34 @@ interface PlayerEvents {
          */
         player: ThisType<Player<PlayerEvents>>;
     };
+    hatChange: {
+        /**
+         * The previous hat Id that the player was wearing.
+         */
+        previous: number;
+        /**
+         * The current hat Id that the player is wearing.
+         */
+        current: number;
+        /**
+         * The player instance who initiated the hat change.
+         */
+        player: ThisType<Player<PlayerEvents>>;
+    };
+    tailChange: {
+        /**
+         * The previous accessory Id that the player was wearing.
+         */
+        previous: number;
+        /**
+         * The current accessory Id that the player is wearing.
+         */
+        current: number;
+        /**
+         * the player instance who initiated the health change.
+         */
+        player: ThisType<Player<PlayerEvents>>;
+    };
     place: GameObject;
     destroyed: null;
     update: ThisType<Player<PlayerEvents>>;
@@ -899,6 +927,8 @@ declare class Player<T extends PlayerEvents> extends UnifyEmitter<EventsObject<P
     get weaponVariant(): number;
     get isInitialized(): boolean;
     get isBestKiller(): boolean;
+    get tailType(): number;
+    get hatType(): number;
     get weaponType(): number;
     get isMyPlayer(): boolean;
     get playerName(): string;
@@ -907,9 +937,7 @@ declare class Player<T extends PlayerEvents> extends UnifyEmitter<EventsObject<P
     get maxHealth(): number;
     get angle(): number;
     get isLeader(): boolean;
-    get tailType(): number;
     get playerID(): number;
-    get hatType(): number;
     get teamID(): string | null;
     get initID(): string;
     get skinID(): number;
@@ -1680,6 +1708,11 @@ declare class ClientPacketOrganizer {
      */
     setPunchState(state: boolean, direction: number): this;
     /**
+     * @description This packet is used to send a message for nearby players
+     * @param content the message content you want to send
+     */
+    chat(message: string): this;
+    /**
      * @description This packet is used to create your character in the game.
      * @param name The name of your character.
      * @param skinID The skin ID of your character.
@@ -1704,7 +1737,7 @@ declare class ClientPacketOrganizer {
     upgrade(itemID: number): this;
 }
 
-declare const _default$2: Readonly<{
+declare const _default$5: Readonly<{
     readonly id: 12;
     readonly name: "Snowball";
     readonly price: 1000;
@@ -1852,7 +1885,7 @@ declare const _default$2: Readonly<{
     readonly dmg: 0.25;
 }>[];
 
-declare const _default$1: Readonly<{
+declare const _default$4: Readonly<{
     readonly id: 0;
     readonly type: 0;
     readonly age: -1;
@@ -2128,7 +2161,7 @@ declare const _default$1: Readonly<{
     readonly speed: 1500;
 }>[];
 
-declare const _default: Readonly<{
+declare const _default$3: Readonly<{
     readonly id: 45;
     readonly name: "Shame!";
     readonly dontSell: true;
@@ -2448,10 +2481,10 @@ declare const _default: Readonly<{
     readonly invisTimer: 1000;
 }>[];
 
-type AccessoryName = (typeof _default$2)["0"]["name"];
-type HatName = (typeof _default)["0"]["name"];
-type GameItemName = (typeof _default$3)["0"]["name"];
-type WeaponName = (typeof _default$1)["0"]["name"];
+type AccessoryName = (typeof _default$5)["0"]["name"];
+type HatName = (typeof _default$3)["0"]["name"];
+type GameItemName = (typeof _default$6)["0"]["name"];
+type WeaponName = (typeof _default$4)["0"]["name"];
 type MyPlayerEvents = EventsObject<PlayerEvents, {
     spawn: ThisType<MyPlayer>;
     death: ThisType<MyPlayer>;
@@ -2478,6 +2511,8 @@ type MyPlayerEvents = EventsObject<PlayerEvents, {
         playerID: number;
     };
 }>;
+type BuildGroup = "foodType" | "wallType" | "spikeType" | "millType" | "boostType" | "turretType";
+type WeaponType = "primary" | "secondary";
 declare class MyPlayer extends Player<MyPlayerEvents> {
     #private;
     readonly connection: MooMooIOConnection;
@@ -2540,7 +2575,15 @@ declare class MyPlayer extends Player<MyPlayerEvents> {
      * @param itemType can be either `Accessory` or `Hat`.
      * @note If you haven't spawned in the game yet, this packet will be ignored.
      */
-    equip<Type extends "Hat" | "Accessory", Name extends Type extends "Hat" ? HatName : AccessoryName>(itemType: Type, HatName: Name): MyPlayer;
+    equip<Type extends "Hat" | "Accessory", Name extends Type extends "Hat" ? HatName : AccessoryName>(itemType: Type, name: Name | "None"): MyPlayer;
+    /**
+     * @description This packet is used to **equip** an `Accessory` or `Hat` in the game.
+     * @ignored if you don't have that item yet. the packet will be ignored.
+     * @param id - The id of the hat or accessory you want to equip.
+     * @param itemType can be either `Accessory` or `Hat`.
+     * @note If you haven't spawned in the game yet, this packet will be ignored.
+     */
+    equip<Type extends "Hat" | "Accessory">(itemType: Type, id: number): MyPlayer;
     /**
      * @description This packet is used to upgrade your chosen items in the game.
      * @param listOf a list of names of the item you want to upgrade to.
@@ -2564,6 +2607,11 @@ declare class MyPlayer extends Player<MyPlayerEvents> {
      */
     autoPunch(state: boolean): MyPlayer;
     /**
+     * @description This packet is used to send a message for nearby players
+     * @param content the message content you want to send
+     */
+    chat(message: string): MyPlayer;
+    /**
      * @description this packet is used to update your character direction in the game.
      * @param direction the direction your character is facing (in radian)
      *
@@ -2572,17 +2620,42 @@ declare class MyPlayer extends Player<MyPlayerEvents> {
     setDirection(direction: number): MyPlayer;
     /**
      * @description This packet is used to change the item held by your player.
-     * @param name - The name of the weapon or item you want to hold.
+     * @param itemName - The name of the weapon or item you want to hold.
      * @param itemType can be either `Weapon` or `Item`.
      */
-    hold<Type extends "Weapon" | "Item", Name extends Type extends "Weapon" ? WeaponName : GameItemName>(itemType: Type, HatName: Name): MyPlayer;
+    hold<Type extends "Weapon" | "Item", Name extends Type extends "Item" ? GameItemName : WeaponName>(itemType: Type, itemName: Name): MyPlayer;
+    /**
+     * @description This packet is used to change the item held by your player.
+     * @param groupType - The name of the group you want to hold
+     * @param itemType must be `Item`.
+     */
+    hold(itemType: "Item", groupType: BuildGroup): MyPlayer;
+    /**
+     * @description This packet is used to change the item held by your player.
+     * @param weaponType - The name of the weapon you want to hold.
+     * @param itemType  must be `Weapon`.
+     */
+    hold(itemType: "Weapon", weaponType: WeaponType): MyPlayer;
+    /**
+     * @description This packet is used to change the item held by your player.
+     * @param itemID - The id of the weapon or item you want to hold.
+     * @param itemType can be either `Weapon` or `Item`.
+     */
+    hold(itemType: "Weapon" | "Item", itemID: number): MyPlayer;
+    /**
+     * @description This function is used to perform an action of placing or using an item by the player in the game.
+     * @param itemID The id of the item that the player wants to use or place.
+     * @param backTo The item that the player should return to after completing the task.
+     * @param direction The direction in which the player should place or use the item.
+     */
+    place(itemID: number, backTo: WeaponName | WeaponType, direction?: number): MyPlayer;
     /**
      * @description This function is used to perform an action of placing or using an item by the player in the game.
      * @param itemName The name of the item that the player wants to use or place.
      * @param backTo The item that the player should return to after completing the task.
      * @param direction The direction in which the player should place or use the item.
      */
-    place(itemName: GameItemName, backTo: WeaponName, direction?: number): MyPlayer;
+    place(itemName: GameItemName | BuildGroup, backTo: WeaponName | WeaponType, direction?: number): MyPlayer;
     /**
      *
      * @description this packet is used to create a team in the game.
@@ -2610,6 +2683,15 @@ declare class MyPlayer extends Player<MyPlayerEvents> {
     get currentXP(): number;
     get maxXP(): number;
     get kit(): number[][];
+    get primary(): number;
+    get secondary(): number | null;
+    private get haveMine();
+    get foodType(): number | undefined;
+    get wallType(): number | undefined;
+    get spikeType(): number | undefined;
+    get millType(): number | undefined;
+    get boostType(): number;
+    get turretType(): number | undefined;
 }
 
 declare class MooMooIOClient {
@@ -2643,4 +2725,365 @@ declare function HookWebSocket(target: {
     };
 }, onHook: (data: WebSocket) => void): void;
 
-export { HookWebSocket, MooMooIOClient as default };
+declare function KeyboardOf(target: {
+    addEventListener: (event: "keydown" | "keyup", callback: (event: KeyboardEvent) => void) => void;
+}): {
+    repeater: {
+        (key: Key, action: () => void, options?: {
+            /**
+             *  Indicates whether the keyboard input is case-sensitive.
+             */
+            caseSensitive?: boolean | undefined;
+            /**
+             * Indicates whether the action should be executed only once.
+             */
+            once?: boolean | undefined;
+        } | undefined, speed?: number): void;
+        (key: string, action: () => void, options?: {
+            /**
+             *  Indicates whether the keyboard input is case-sensitive.
+             */
+            caseSensitive?: boolean | undefined;
+            /**
+             * Indicates whether the action should be executed only once.
+             */
+            once?: boolean | undefined;
+        } | undefined, speed?: number): void;
+    };
+    on: {
+        (key: Key, action: () => void, sleep: (() => void) | null, options?: {
+            /**
+             *  Indicates whether the keyboard input is case-sensitive.
+             */
+            caseSensitive?: boolean | undefined;
+            /**
+             * Indicates whether the action should be executed only once.
+             */
+            once?: boolean | undefined;
+        } | undefined): void;
+        (key: string, action: () => void, sleep: (() => void) | null, options?: {
+            /**
+             *  Indicates whether the keyboard input is case-sensitive.
+             */
+            caseSensitive?: boolean | undefined;
+            /**
+             * Indicates whether the action should be executed only once.
+             */
+            once?: boolean | undefined;
+        } | undefined): void;
+    };
+};
+type Key = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "Escape" | "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F9" | "F10" | "F11" | "F12" | "Insert" | "Delete" | "Home" | "*" | "+" | "Enter" | "AudioVolumeDown" | "/" | "-" | "AudioVolumeMute" | "Control" | "v" | "PageUp" | "PageDown" | "Backspace" | "\\" | "Shift" | "|" | "F8" | "AudioVolumeUp" | "`" | "=" | "Tab" | "q" | "w" | "e" | "r" | "t" | "y" | "u" | "i" | "o" | "p" | "[" | "]" | "CapsLock" | "A" | "S" | "D" | "F" | "G" | "H" | "J" | "K" | "L" | ";" | "'" | "End" | "z" | "x" | "c" | "b" | "n" | "m" | "," | "." | "ArrowUp" | "Meta" | "Alt" | " " | "ContextMenu" | "#" | "@" | "!" | ")" | "_" | "(" | "&" | "^" | "%" | "$" | "~" | "<" | "C" | "N" | "M" | "?" | ">" | "B" | "V" | "X" | ":" | '"' | "}" | "{" | "P" | "O" | "I" | "U" | "Y" | "T" | "R" | "E" | "W" | "Q" | "Clear" | "ArrowDown";
+
+type ReturnHat = (typeof _default$3)[number] | undefined;
+declare function getHat(hatID: number): ReturnHat;
+declare function getHat(hatName: string): ReturnHat;
+declare function getHat(prop: PropertyKey, propValue: unknown): ReturnHat;
+
+type ReturnAccessory = (typeof _default$5)[number] | undefined;
+declare function getAccessory(AccessoryID: number): ReturnAccessory;
+declare function getAccessory(AccessoryName: string): ReturnAccessory;
+declare function getAccessory(prop: PropertyKey, propValue: unknown): ReturnAccessory;
+
+type ReturnWeapon = (typeof _default$4)[number] | undefined;
+declare function getWeapon(weaponID: number): ReturnWeapon;
+declare function getWeapon(weaponName: string): ReturnWeapon;
+declare function getWeapon(prop: PropertyKey, propValue: unknown): ReturnWeapon;
+
+declare const _default$2: Readonly<{
+    id: number;
+    src: string;
+    killScore: number;
+    health: number;
+    weightM: number;
+    speed: number;
+    turnSpeed: number;
+    scale: number;
+    drop: (string | number)[];
+    name?: undefined;
+    hostile?: undefined;
+    dmg?: undefined;
+    viewRange?: undefined;
+    chargePlayer?: undefined;
+    noTrap?: undefined;
+    nameScale?: undefined;
+    dontRun?: undefined;
+    fixedSpawn?: undefined;
+    spawnDelay?: undefined;
+    colDmg?: undefined;
+    spriteMlt?: undefined;
+    leapForce?: undefined;
+    hitRange?: undefined;
+    hitDelay?: undefined;
+    hitScare?: undefined;
+} | {
+    id: number;
+    name: string;
+    src: string;
+    hostile: boolean;
+    dmg: number;
+    killScore: number;
+    health: number;
+    weightM: number;
+    speed: number;
+    turnSpeed: number;
+    scale: number;
+    viewRange: number;
+    chargePlayer: boolean;
+    drop: (string | number)[];
+    noTrap?: undefined;
+    nameScale?: undefined;
+    dontRun?: undefined;
+    fixedSpawn?: undefined;
+    spawnDelay?: undefined;
+    colDmg?: undefined;
+    spriteMlt?: undefined;
+    leapForce?: undefined;
+    hitRange?: undefined;
+    hitDelay?: undefined;
+    hitScare?: undefined;
+} | {
+    id: number;
+    name: string;
+    src: string;
+    dmg: number;
+    killScore: number;
+    noTrap: boolean;
+    health: number;
+    weightM: number;
+    speed: number;
+    turnSpeed: number;
+    scale: number;
+    drop: (string | number)[];
+    hostile?: undefined;
+    viewRange?: undefined;
+    chargePlayer?: undefined;
+    nameScale?: undefined;
+    dontRun?: undefined;
+    fixedSpawn?: undefined;
+    spawnDelay?: undefined;
+    colDmg?: undefined;
+    spriteMlt?: undefined;
+    leapForce?: undefined;
+    hitRange?: undefined;
+    hitDelay?: undefined;
+    hitScare?: undefined;
+} | {
+    id: number;
+    name: string;
+    nameScale: number;
+    src: string;
+    hostile: boolean;
+    dontRun: boolean;
+    fixedSpawn: boolean;
+    spawnDelay: number;
+    noTrap: boolean;
+    colDmg: number;
+    dmg: number;
+    killScore: number;
+    health: number;
+    weightM: number;
+    speed: number;
+    turnSpeed: number;
+    scale: number;
+    spriteMlt: number;
+    leapForce: number;
+    viewRange: number;
+    hitRange: number;
+    hitDelay: number;
+    chargePlayer: boolean;
+    drop: (string | number)[];
+    hitScare?: undefined;
+} | {
+    id: number;
+    name: string;
+    hostile: boolean;
+    nameScale: number;
+    src: string;
+    fixedSpawn: boolean;
+    spawnDelay: number;
+    colDmg: number;
+    killScore: number;
+    health: number;
+    weightM: number;
+    speed: number;
+    turnSpeed: number;
+    scale: number;
+    spriteMlt: number;
+    drop?: undefined;
+    dmg?: undefined;
+    viewRange?: undefined;
+    chargePlayer?: undefined;
+    noTrap?: undefined;
+    dontRun?: undefined;
+    leapForce?: undefined;
+    hitRange?: undefined;
+    hitDelay?: undefined;
+    hitScare?: undefined;
+} | {
+    id: number;
+    name: string;
+    src: string;
+    hostile: boolean;
+    fixedSpawn: boolean;
+    dontRun: boolean;
+    hitScare: number;
+    spawnDelay: number;
+    noTrap: boolean;
+    nameScale: number;
+    dmg: number;
+    colDmg: number;
+    killScore: number;
+    health: number;
+    weightM: number;
+    speed: number;
+    turnSpeed: number;
+    scale: number;
+    viewRange: number;
+    chargePlayer: boolean;
+    drop: (string | number)[];
+    spriteMlt?: undefined;
+    leapForce?: undefined;
+    hitRange?: undefined;
+    hitDelay?: undefined;
+}>[];
+
+type ReturnAIType = (typeof _default$2)[number] | undefined;
+declare function getAIType(aiID: number): ReturnAIType;
+declare function getAIType(aiName: string): ReturnAIType;
+declare function getAIType(prop: PropertyKey, propValue: unknown): ReturnAIType;
+
+declare const _default$1: Readonly<{
+    readonly id: 0;
+    readonly name: "food";
+    readonly layer: 0;
+    readonly limit: number;
+} | {
+    readonly id: 1;
+    readonly name: "walls";
+    readonly place: true;
+    readonly limit: 30;
+    readonly layer: 0;
+} | {
+    readonly id: 2;
+    readonly name: "spikes";
+    readonly place: true;
+    readonly limit: 15;
+    readonly layer: 0;
+} | {
+    readonly id: 3;
+    readonly name: "mill";
+    readonly place: true;
+    readonly limit: 7;
+    readonly layer: 1;
+} | {
+    readonly id: 4;
+    readonly name: "mine";
+    readonly place: true;
+    readonly limit: 1;
+    readonly layer: 0;
+} | {
+    readonly id: 5;
+    readonly name: "trap";
+    readonly place: true;
+    readonly limit: 6;
+    readonly layer: -1;
+} | {
+    readonly id: 6;
+    readonly name: "booster";
+    readonly place: true;
+    readonly limit: 12;
+    readonly layer: -1;
+} | {
+    readonly id: 7;
+    readonly name: "turret";
+    readonly place: true;
+    readonly limit: 2;
+    readonly layer: 1;
+} | {
+    readonly id: 8;
+    readonly name: "watchtower";
+    readonly placeable: true;
+    readonly limit: 12;
+    readonly layer: 1;
+} | {
+    readonly id: 9;
+    readonly name: "buff";
+    readonly place: true;
+    readonly limit: 4;
+    readonly layer: -1;
+} | {
+    readonly id: 10;
+    readonly name: "spawn";
+    readonly place: true;
+    readonly limit: 1;
+    readonly layer: -1;
+} | {
+    readonly id: 11;
+    readonly name: "sapling";
+    readonly place: true;
+    readonly limit: 2;
+    readonly layer: 0;
+} | {
+    readonly id: 12;
+    readonly name: "blocker";
+    readonly place: true;
+    readonly limit: 3;
+    readonly layer: -1;
+} | {
+    readonly id: 13;
+    readonly name: "teleporter";
+    readonly place: true;
+    readonly limit: 2;
+    readonly layer: -1;
+}>[];
+
+type ReturnGroup = (typeof _default$1)[number] | undefined;
+declare function getGroup(groupName: string): ReturnGroup;
+declare function getGroup(groupID: number): ReturnGroup;
+
+type ReturnItem = (typeof _default$6)[number] | undefined;
+declare function getItem(itemType: number): ReturnItem;
+declare function getItem(itemID: number): ReturnItem;
+declare function getItem(itemName: string): ReturnItem;
+declare function getItem(prop: PropertyKey, propValue: unknown): ReturnItem;
+
+declare function getUniqueName(index: number): string | undefined;
+
+declare const _default: Readonly<{
+    indx: number;
+    layer: number;
+    src: string;
+    dmg: number;
+    speed: number;
+    scale: number;
+    range: number;
+} | {
+    indx: number;
+    layer: number;
+    dmg: number;
+    scale: number;
+    src?: undefined;
+    speed?: undefined;
+    range?: undefined;
+}>[];
+
+type ReturnProjectile = (typeof _default)[number] | undefined;
+declare function getProjectile(projectileSrc: string): ReturnProjectile;
+declare function getProjectile(projectileType: number): ReturnProjectile;
+
+declare function getWeaponVariants(id: number): Readonly<{
+    id: number;
+    src: string;
+    xp: number;
+    val: number;
+    poison?: undefined;
+} | {
+    id: number;
+    src: string;
+    poison: boolean;
+    xp: number;
+    val: number;
+}> | undefined;
+
+export { HookWebSocket, KeyboardOf, MooMooIOClient as default, getAIType, getAccessory, getGroup, getHat, getItem, getProjectile, getUniqueName, getWeapon, getWeaponVariants };

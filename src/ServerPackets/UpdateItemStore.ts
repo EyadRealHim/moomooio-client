@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const schema = z.tuple([z.number(), z.number(), z.number()]);
+const schema = z.tuple([z.number(), z.union([z.number(), z.string()]), z.number()]);
 
 /**
  * @packet-id "us"
@@ -27,7 +27,7 @@ export default class UpdateItemStore {
     return new UpdateItemStore(
       isEquip ? "Equipped" : "Purchased",
       isAccessory ? "Accessory" : "Hat",
-      itemID
+      Number(itemID)
     );
   }
 }

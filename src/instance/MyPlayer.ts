@@ -65,6 +65,9 @@ export type MyPlayerEvents = EventsObject<
   }
 >;
 
+type BuildGroup = "foodType" | "wallType" | "spikeType" | "millType" | "boostType" | "turretType";
+type WeaponType = "primary" | "secondary";
+
 export default class MyPlayer extends Player<MyPlayerEvents> {
   protected clientPacketOrganizer: ClientPacketOrganizer;
   protected state = {
@@ -269,19 +272,29 @@ export default class MyPlayer extends Player<MyPlayerEvents> {
   equip<
     Type extends "Hat" | "Accessory",
     Name extends Type extends "Hat" ? HatName : AccessoryName
-  >(itemType: Type, HatName: Name): MyPlayer;
-  equip(itemType: "Accessory" | "Hat", AccessoryOrHatName: string): MyPlayer {
+  >(itemType: Type, name: Name | "None"): MyPlayer;
+  /**
+   * @description This packet is used to **equip** an `Accessory` or `Hat` in the game.
+   * @ignored if you don't have that item yet. the packet will be ignored.
+   * @param id - The id of the hat or accessory you want to equip.
+   * @param itemType can be either `Accessory` or `Hat`.
+   * @note If you haven't spawned in the game yet, this packet will be ignored.
+   */
+  equip<Type extends "Hat" | "Accessory">(itemType: Type, id: number): MyPlayer;
+  equip(itemType: "Accessory" | "Hat", AccessoryOrHatName: string | number): MyPlayer {
     if (!this.state.alive || !this.isInitialized) return this;
 
     const isAccessory = itemType == "Accessory";
-    const item = (isAccessory ? getAccessory : getHat)(AccessoryOrHatName);
+    const item = (isAccessory ? getAccessory : getHat)(AccessoryOrHatName.toString());
+
+    if (AccessoryOrHatName == "None") {
+      this.clientPacketOrganizer.equip(0, itemType).parseLast();
+      return this;
+    }
 
     if (!item) throw new Error(`Item Not Found ${AccessoryOrHatName} of type ${itemType}`);
 
-    if (isAccessory && item.id == this.tailType) return this;
-    if (!isAccessory && item.id == this.hatType) return this;
-
-    if (!this.#purchasedItems[itemType].includes(item.id)) return this;
+    if (item.price != 0 && !this.#purchasedItems[itemType].includes(item.id)) return this;
 
     this.clientPacketOrganizer.equip(item.id, itemType).parseLast();
     return this;
@@ -357,6 +370,17 @@ export default class MyPlayer extends Player<MyPlayerEvents> {
   }
 
   /**
+   * @description This packet is used to send a message for nearby players
+   * @param content the message content you want to send
+   */
+  chat(message: string): MyPlayer {
+    if (!this.state.alive || !this.isInitialized) return this;
+
+    this.clientPacketOrganizer.chat(message).parseLast();
+    return this;
+  }
+
+  /**
    * @description this packet is used to update your character direction in the game.
    * @param direction the direction your character is facing (in radian)
    *
@@ -371,22 +395,60 @@ export default class MyPlayer extends Player<MyPlayerEvents> {
 
   /**
    * @description This packet is used to change the item held by your player.
-   * @param name - The name of the weapon or item you want to hold.
+   * @param itemName - The name of the weapon or item you want to hold.
    * @param itemType can be either `Weapon` or `Item`.
    */
   hold<
     Type extends "Weapon" | "Item",
-    Name extends Type extends "Weapon" ? WeaponName : GameItemName
-  >(itemType: Type, HatName: Name): MyPlayer;
-  hold(itemType: "Weapon" | "Item", itemName: string): MyPlayer {
+    Name extends Type extends "Item" ? GameItemName : WeaponName
+  >(itemType: Type, itemName: Name): MyPlayer;
+  /**
+   * @description This packet is used to change the item held by your player.
+   * @param groupType - The name of the group you want to hold
+   * @param itemType must be `Item`.
+   */
+  hold(itemType: "Item", groupType: BuildGroup): MyPlayer;
+  /**
+   * @description This packet is used to change the item held by your player.
+   * @param weaponType - The name of the weapon you want to hold.
+   * @param itemType  must be `Weapon`.
+   */
+  hold(itemType: "Weapon", weaponType: WeaponType): MyPlayer;
+  /**
+   * @description This packet is used to change the item held by your player.
+   * @param itemID - The id of the weapon or item you want to hold.
+   * @param itemType can be either `Weapon` or `Item`.
+   */
+  hold(itemType: "Weapon" | "Item", itemID: number): MyPlayer;
+  hold(
+    itemType: "Weapon" | "Item",
+    itemName: GameItemName | WeaponName | BuildGroup | WeaponType | number
+  ) {
+    return this.#hold(itemType, itemName);
+  }
+  #hold(
+    itemType: "Weapon" | "Item",
+    itemName: GameItemName | WeaponName | BuildGroup | WeaponType | number
+  ): MyPlayer {
     if (!this.state.alive || !this.isInitialized) return this;
 
     const isWeapon = itemType == "Weapon";
-    const item = (isWeapon ? getWeapon : getItem)(itemName);
+    const item = isWeapon
+      ? getWeapon(
+          itemName == "primary"
+            ? this.primary
+            : itemName == "secondary"
+            ? this.secondary || 0
+            : (itemName as number)
+        )
+      : getItem(
+          itemName.toString().endsWith("Type")
+            ? this[itemName as BuildGroup] ?? -1
+            : (itemName as number)
+        );
 
     if (!item) throw new Error(`Item Not Found ${itemName} of type ${itemType}`);
 
-    if (isWeapon && item.id == this.weaponType) return this;
     if (!isWeapon && item.id == this.buildType) return this;
 
     if (isWeapon && !this.#weaponKit.includes(item.id)) return this;
@@ -403,15 +465,32 @@ export default class MyPlayer extends Player<MyPlayerEvents> {
 
   /**
    * @description This function is used to perform an action of placing or using an item by the player in the game.
+   * @param itemID The id of the item that the player wants to use or place.
+   * @param backTo The item that the player should return to after completing the task.
+   * @param direction The direction in which the player should place or use the item.
+   */
+  place(itemID: number, backTo: WeaponName | WeaponType, direction?: number): MyPlayer;
+  /**
+   * @description This function is used to perform an action of placing or using an item by the player in the game.
    * @param itemName The name of the item that the player wants to use or place.
    * @param backTo The item that the player should return to after completing the task.
    * @param direction The direction in which the player should place or use the item.
    */
-  place(itemName: GameItemName, backTo: WeaponName, direction: number = this.angle): MyPlayer {
+  place(
+    itemName: GameItemName | BuildGroup,
+    backTo: WeaponName | WeaponType,
+    direction?: number
+  ): MyPlayer;
+  place(
+    itemName: GameItemName | BuildGroup | number,
+    backTo: WeaponName | WeaponType,
+    direction: number = this.angle
+  ): MyPlayer {
     if (!this.state.alive || !this.isInitialized) return this;
-    this.hold("Item", itemName);
+
+    this.#hold("Item", itemName);
     this.punch(direction);
-    this.hold("Weapon", backTo);
+    this.#hold("Weapon", backTo);
 
     return this;
   }
@@ -475,5 +554,36 @@ export default class MyPlayer extends Player<MyPlayerEvents> {
 
   get kit() {
     return [this.#weaponKit, this.#itemsKit];
+  }
+
+  get primary() {
+    return this.#weaponKit[0]!;
+  }
+
+  get secondary() {
+    return this.#weaponKit[1] ?? null;
+  }
+
+  private get haveMine() {
+    return this.#itemsKit[4] == 13 || this.#itemsKit[4] == 14;
+  }
+
+  get foodType() {
+    return this.#itemsKit[0];
+  }
+  get wallType() {
+    return this.#itemsKit[1];
+  }
+  get spikeType() {
+    return this.#itemsKit[2];
+  }
+  get millType() {
+    return this.#itemsKit[2];
+  }
+  get boostType() {
+    return this.#itemsKit[3] ?? -1;
+  }
+  get turretType() {
+    return this.#itemsKit[4 + +this.haveMine];
   }
 }

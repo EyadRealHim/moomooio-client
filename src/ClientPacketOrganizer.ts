@@ -181,6 +181,15 @@ export default class ClientPacketOrganizer {
   }
 
   /**
+   * @description This packet is used to send a message for nearby players
+   * @param content the message content you want to send
+   */
+  chat(message: string) {
+    this.requestStackPush(["ch", [message.slice(0, 30)]]);
+    return this;
+  }
+
+  /**
    * @description This packet is used to create your character in the game.
    * @param name The name of your character.
    * @param skinID The skin ID of your character.

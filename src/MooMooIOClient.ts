@@ -29,11 +29,13 @@ export default class MooMooIOClient {
   public destroy() {
     this.connection.destroy();
     this.myPlayer.clear();
+
     this.clear();
   }
 
   protected clear() {
     this.players.forEach((player) => player.clear());
+    this.gameObjects = [];
     this.teams.clear();
   }
 

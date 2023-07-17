@@ -80,6 +80,36 @@ export interface PlayerEvents {
     player: ThisType<Player<PlayerEvents>>;
   };
 
+  hatChange: {
+    /**
+     * The previous hat Id that the player was wearing.
+     */
+    previous: number;
+    /**
+     * The current hat Id that the player is wearing.
+     */
+    current: number;
+    /**
+     * The player instance who initiated the hat change.
+     */
+    player: ThisType<Player<PlayerEvents>>;
+  };
+
+  tailChange: {
+    /**
+     * The previous accessory Id that the player was wearing.
+     */
+    previous: number;
+    /**
+     * The current accessory Id that the player is wearing.
+     */
+    current: number;
+    /**
+     * the player instance who initiated the health change.
+     */
+    player: ThisType<Player<PlayerEvents>>;
+  };
+
   place: GameObject;
 
   destroyed: null;
@@ -125,8 +155,8 @@ export default class Player<T extends PlayerEvents> extends UnifyEmitter<
   #buildType = -1;
   #maxHealth = 100;
   #playerID!: number;
-  #tailType = 0;
-  #hatType = 0;
+  #tailType = new PropertyTracker(0);
+  #hatType = new PropertyTracker(0);
   #health = new PropertyTracker(100);
   #initID!: string;
   #skinID = 0;
@@ -159,13 +189,13 @@ export default class Player<T extends PlayerEvents> extends UnifyEmitter<
     this.#weaponVariant = playerData.weaponVariant;
     this.#isBestKiller = playerData.isBestKiller;
     this.#weaponType = playerData.weaponType;
+    this.#tailType.set(playerData.tailType);
     this.#buildType = playerData.buildType;
-    this.#tailType = playerData.tailType;
+    this.#hatType.set(playerData.hatType);
     this.#isLeader = playerData.isLeader;
-    this.#hatType = playerData.hatType;
+    this.#angle.set(playerData.angle);
     this.#teamID = playerData.teamID;
     this.#layer = playerData.layer;
-    this.#angle.set(playerData.angle);
     this.#x.set(playerData.x);
     this.#y.set(playerData.y);
 
@@ -177,6 +207,22 @@ export default class Player<T extends PlayerEvents> extends UnifyEmitter<
         direction: Math.atan2(deltaY, deltaX),
         x: this.x,
         y: this.y,
+        player: this,
+      });
+    }
+
+    if (this.#hatType.isDiff()) {
+      this.emit("hatChange", {
+        previous: this.#hatType.previous ?? 0,
+        current: this.#hatType.current,
+        player: this,
+      });
+    }
+
+    if (this.#tailType.isDiff()) {
+      this.emit("tailChange", {
+        previous: this.#tailType.previous ?? 0,
+        current: this.#tailType.current,
         player: this,
       });
     }
@@ -193,11 +239,14 @@ export default class Player<T extends PlayerEvents> extends UnifyEmitter<
 
   clear() {
     this.emit("destroyed", null);
+    this.#isInitialized = false;
     this.removeListeners();
   }
   /* prettier-ignore */ get weaponVariant() { return this.#weaponVariant }
   /* prettier-ignore */ get isInitialized() { return this.#isInitialized }
   /* prettier-ignore */ get isBestKiller() { return this.#isBestKiller }
+  /* prettier-ignore */ get tailType() { return this.#tailType.current }
+  /* prettier-ignore */ get hatType() { return this.#hatType.current }
   /* prettier-ignore */ get weaponType() { return this.#weaponType }
   /* prettier-ignore */ get isMyPlayer() { return this.#isMyPlayer }
   /* prettier-ignore */ get playerName() { return this.#playerName }
@@ -206,9 +255,7 @@ export default class Player<T extends PlayerEvents> extends UnifyEmitter<
   /* prettier-ignore */ get maxHealth() { return this.#maxHealth }
   /* prettier-ignore */ get angle() { return this.#angle.current }
   /* prettier-ignore */ get isLeader() { return this.#isLeader }
-  /* prettier-ignore */ get tailType() { return this.#tailType }
   /* prettier-ignore */ get playerID() { return this.#playerID }
-  /* prettier-ignore */ get hatType() { return this.#hatType }
   /* prettier-ignore */ get teamID() { return this.#teamID }
   /* prettier-ignore */ get initID() { return this.#initID }
   /* prettier-ignore */ get skinID() { return this.#skinID }

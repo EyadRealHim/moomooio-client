@@ -1,3 +1,19 @@
+var __defProp = Object.defineProperty;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
 var __accessCheck = (obj, member, msg) => {
   if (!member.has(obj))
     throw TypeError("Cannot " + msg);
@@ -78,8 +94,8 @@ var Player = class extends UnifyEmitter {
     __privateAdd(this, _buildType, -1);
     __privateAdd(this, _maxHealth, 100);
     __privateAdd(this, _playerID, void 0);
-    __privateAdd(this, _tailType, 0);
-    __privateAdd(this, _hatType, 0);
+    __privateAdd(this, _tailType, new PropertyTracker(0));
+    __privateAdd(this, _hatType, new PropertyTracker(0));
     __privateAdd(this, _health, new PropertyTracker(100));
     __privateAdd(this, _initID, void 0);
     __privateAdd(this, _skinID, 0);
@@ -105,16 +121,17 @@ var Player = class extends UnifyEmitter {
     __privateSet(this, _isInitialized, true);
   }
   update(playerData) {
+    var _a, _b;
     __privateSet(this, _weaponVariant, playerData.weaponVariant);
     __privateSet(this, _isBestKiller, playerData.isBestKiller);
     __privateSet(this, _weaponType, playerData.weaponType);
+    __privateGet(this, _tailType).set(playerData.tailType);
     __privateSet(this, _buildType, playerData.buildType);
-    __privateSet(this, _tailType, playerData.tailType);
+    __privateGet(this, _hatType).set(playerData.hatType);
     __privateSet(this, _isLeader, playerData.isLeader);
-    __privateSet(this, _hatType, playerData.hatType);
+    __privateGet(this, _angle).set(playerData.angle);
     __privateSet(this, _teamID, playerData.teamID);
     __privateSet(this, _layer, playerData.layer);
-    __privateGet(this, _angle).set(playerData.angle);
     __privateGet(this, _x).set(playerData.x);
     __privateGet(this, _y).set(playerData.y);
     if (__privateGet(this, _x).isDiff() || __privateGet(this, _y).isDiff()) {
@@ -124,6 +141,20 @@ var Player = class extends UnifyEmitter {
         direction: Math.atan2(deltaY, deltaX),
         x: this.x,
         y: this.y,
+        player: this
+      });
+    }
+    if (__privateGet(this, _hatType).isDiff()) {
+      this.emit("hatChange", {
+        previous: (_a = __privateGet(this, _hatType).previous) != null ? _a : 0,
+        current: __privateGet(this, _hatType).current,
+        player: this
+      });
+    }
+    if (__privateGet(this, _tailType).isDiff()) {
+      this.emit("tailChange", {
+        previous: (_b = __privateGet(this, _tailType).previous) != null ? _b : 0,
+        current: __privateGet(this, _tailType).current,
         player: this
       });
     }
@@ -137,6 +168,7 @@ var Player = class extends UnifyEmitter {
   }
   clear() {
     this.emit("destroyed", null);
+    __privateSet(this, _isInitialized, false);
     this.removeListeners();
   }
   /* prettier-ignore */
@@ -150,6 +182,14 @@ var Player = class extends UnifyEmitter {
   /* prettier-ignore */
   get isBestKiller() {
     return __privateGet(this, _isBestKiller);
+  }
+  /* prettier-ignore */
+  get tailType() {
+    return __privateGet(this, _tailType).current;
+  }
+  /* prettier-ignore */
+  get hatType() {
+    return __privateGet(this, _hatType).current;
   }
   /* prettier-ignore */
   get weaponType() {
@@ -184,16 +224,8 @@ var Player = class extends UnifyEmitter {
     return __privateGet(this, _isLeader);
   }
   /* prettier-ignore */
-  get tailType() {
-    return __privateGet(this, _tailType);
-  }
-  /* prettier-ignore */
   get playerID() {
     return __privateGet(this, _playerID);
-  }
-  /* prettier-ignore */
-  get hatType() {
-    return __privateGet(this, _hatType);
   }
   /* prettier-ignore */
   get teamID() {
@@ -621,7 +653,7 @@ var SpawnProjectile = _SpawnProjectile;
 
 // src/ServerPackets/UpdateItemStore.ts
 import { z as z8 } from "zod";
-var schema8 = z8.tuple([z8.number(), z8.number(), z8.number()]);
+var schema8 = z8.tuple([z8.number(), z8.union([z8.number(), z8.string()]), z8.number()]);
 var _UpdateItemStore = class _UpdateItemStore {
   constructor(method, type, itemID) {
     this.method = method;
@@ -634,7 +666,7 @@ var _UpdateItemStore = class _UpdateItemStore {
     return new _UpdateItemStore(
       isEquip ? "Equipped" : "Purchased",
       isAccessory ? "Accessory" : "Hat",
-      itemID
+      Number(itemID)
     );
   }
 };
@@ -869,8 +901,9 @@ var chunkSchema5 = z19.tuple([
   z19.number(),
   z19.number(),
   z19.string().nullable(),
-  z19.number(),
-  z19.number(),
+  // 8
+  z19.union([z19.number(), z19.string()]),
+  z19.union([z19.number(), z19.string()]),
   z19.number(),
   z19.number(),
   z19.number()
@@ -897,8 +930,8 @@ var _UpdatePlayers = class _UpdatePlayers {
           weaponType: chunk[5],
           buildType: chunk[4],
           isLeader: !!chunk[8],
-          tailType: chunk[10],
-          hatType: chunk[9],
+          tailType: Number(chunk[10]),
+          hatType: Number(chunk[9]),
           layer: chunk[12],
           teamID: chunk[7],
           angle: chunk[3],
@@ -1540,6 +1573,14 @@ var ClientPacketOrganizer = class {
    */
   setPunchState(state, direction) {
     this.requestStackPush(["c", [state, direction]]);
+    return this;
+  }
+  /**
+   * @description This packet is used to send a message for nearby players
+   * @param content the message content you want to send
+   */
+  chat(message) {
+    this.requestStackPush(["ch", [message.slice(0, 30)]]);
     return this;
   }
   /**
@@ -2960,12 +3001,13 @@ var MAX_XP_GROWTH = 1.2;
 var maxXPRelativeToAge = (age) => {
   return START_MAX_XP * MAX_XP_GROWTH ** (age - 1);
 };
-var _currentAge, _currentXP, _maxXP, _currentUpgradeLevel, _upgradeLevel, _weaponKit, _itemsKit, _purchasedItems, _itemUsage;
+var _currentAge, _currentXP, _maxXP, _currentUpgradeLevel, _upgradeLevel, _weaponKit, _itemsKit, _purchasedItems, _itemUsage, _hold, hold_fn;
 var MyPlayer = class extends Player {
   // Key: ItemID, Value: ItemUsageCount
   constructor(connection) {
     super();
     this.connection = connection;
+    __privateAdd(this, _hold);
     this.state = {
       autoPunchState: false,
       alive: false,
@@ -3112,14 +3154,14 @@ var MyPlayer = class extends Player {
     if (!this.state.alive || !this.isInitialized)
       return this;
     const isAccessory = itemType == "Accessory";
-    const item = (isAccessory ? getAccessory : getHat)(AccessoryOrHatName);
+    const item = (isAccessory ? getAccessory : getHat)(AccessoryOrHatName.toString());
+    if (AccessoryOrHatName == "None") {
+      this.clientPacketOrganizer.equip(0, itemType).parseLast();
+      return this;
+    }
     if (!item)
       throw new Error(`Item Not Found ${AccessoryOrHatName} of type ${itemType}`);
-    if (isAccessory && item.id == this.tailType)
-      return this;
-    if (!isAccessory && item.id == this.hatType)
-      return this;
-    if (!__privateGet(this, _purchasedItems)[itemType].includes(item.id))
+    if (item.price != 0 && !__privateGet(this, _purchasedItems)[itemType].includes(item.id))
       return this;
     this.clientPacketOrganizer.equip(item.id, itemType).parseLast();
     return this;
@@ -3171,6 +3213,16 @@ var MyPlayer = class extends Player {
     return this;
   }
   /**
+   * @description This packet is used to send a message for nearby players
+   * @param content the message content you want to send
+   */
+  chat(message) {
+    if (!this.state.alive || !this.isInitialized)
+      return this;
+    this.clientPacketOrganizer.chat(message).parseLast();
+    return this;
+  }
+  /**
    * @description this packet is used to update your character direction in the game.
    * @param direction the direction your character is facing (in radian)
    *
@@ -3183,39 +3235,14 @@ var MyPlayer = class extends Player {
     return this;
   }
   hold(itemType, itemName) {
-    if (!this.state.alive || !this.isInitialized)
-      return this;
-    const isWeapon = itemType == "Weapon";
-    const item = (isWeapon ? getWeapon : getItem)(itemName);
-    if (!item)
-      throw new Error(`Item Not Found ${itemName} of type ${itemType}`);
-    if (isWeapon && item.id == this.weaponType)
-      return this;
-    if (!isWeapon && item.id == this.buildType)
-      return this;
-    if (isWeapon && !__privateGet(this, _weaponKit).includes(item.id))
-      return this;
-    if (!isWeapon && !__privateGet(this, _itemsKit).includes(item.id))
-      return this;
-    const group = getGroup("group" in item ? item.group : -1);
-    const ItemUsageCount = isWeapon ? -1 : __privateGet(this, _itemUsage).get((group == null ? void 0 : group.id) || -1);
-    if (!isWeapon && group && group.limit <= ItemUsageCount)
-      return this;
-    this.clientPacketOrganizer.holdItem(item.id, isWeapon).parseLast();
-    return this;
+    return __privateMethod(this, _hold, hold_fn).call(this, itemType, itemName);
   }
-  /**
-   * @description This function is used to perform an action of placing or using an item by the player in the game.
-   * @param itemName The name of the item that the player wants to use or place.
-   * @param backTo The item that the player should return to after completing the task.
-   * @param direction The direction in which the player should place or use the item.
-   */
   place(itemName, backTo, direction = this.angle) {
     if (!this.state.alive || !this.isInitialized)
       return this;
-    this.hold("Item", itemName);
+    __privateMethod(this, _hold, hold_fn).call(this, "Item", itemName);
     this.punch(direction);
-    this.hold("Weapon", backTo);
+    __privateMethod(this, _hold, hold_fn).call(this, "Weapon", backTo);
     return this;
   }
   /**
@@ -3275,6 +3302,35 @@ var MyPlayer = class extends Player {
   get kit() {
     return [__privateGet(this, _weaponKit), __privateGet(this, _itemsKit)];
   }
+  get primary() {
+    return __privateGet(this, _weaponKit)[0];
+  }
+  get secondary() {
+    var _a;
+    return (_a = __privateGet(this, _weaponKit)[1]) != null ? _a : null;
+  }
+  get haveMine() {
+    return __privateGet(this, _itemsKit)[4] == 13 || __privateGet(this, _itemsKit)[4] == 14;
+  }
+  get foodType() {
+    return __privateGet(this, _itemsKit)[0];
+  }
+  get wallType() {
+    return __privateGet(this, _itemsKit)[1];
+  }
+  get spikeType() {
+    return __privateGet(this, _itemsKit)[2];
+  }
+  get millType() {
+    return __privateGet(this, _itemsKit)[2];
+  }
+  get boostType() {
+    var _a;
+    return (_a = __privateGet(this, _itemsKit)[3]) != null ? _a : -1;
+  }
+  get turretType() {
+    return __privateGet(this, _itemsKit)[4 + +this.haveMine];
+  }
 };
 _currentAge = new WeakMap();
 _currentXP = new WeakMap();
@@ -3285,6 +3341,32 @@ _weaponKit = new WeakMap();
 _itemsKit = new WeakMap();
 _purchasedItems = new WeakMap();
 _itemUsage = new WeakMap();
+_hold = new WeakSet();
+hold_fn = function(itemType, itemName) {
+  var _a;
+  if (!this.state.alive || !this.isInitialized)
+    return this;
+  const isWeapon = itemType == "Weapon";
+  const item = isWeapon ? getWeapon(
+    itemName == "primary" ? this.primary : itemName == "secondary" ? this.secondary || 0 : itemName
+  ) : getItem(
+    itemName.toString().endsWith("Type") ? (_a = this[itemName]) != null ? _a : -1 : itemName
+  );
+  if (!item)
+    throw new Error(`Item Not Found ${itemName} of type ${itemType}`);
+  if (!isWeapon && item.id == this.buildType)
+    return this;
+  if (isWeapon && !__privateGet(this, _weaponKit).includes(item.id))
+    return this;
+  if (!isWeapon && !__privateGet(this, _itemsKit).includes(item.id))
+    return this;
+  const group = getGroup("group" in item ? item.group : -1);
+  const ItemUsageCount = isWeapon ? -1 : __privateGet(this, _itemUsage).get((group == null ? void 0 : group.id) || -1);
+  if (!isWeapon && group && group.limit <= ItemUsageCount)
+    return this;
+  this.clientPacketOrganizer.holdItem(item.id, isWeapon).parseLast();
+  return this;
+};
 
 // src/instance/Team.ts
 var Team = class {
@@ -3454,6 +3536,7 @@ var MooMooIOClient = class {
   }
   clear() {
     this.players.forEach((player) => player.clear());
+    this.gameObjects = [];
     this.teams.clear();
   }
   onMessage(packet) {
@@ -3630,9 +3713,392 @@ function HookWebSocket(target, onHook) {
   };
 }
 
+// src/KeyboardOf.ts
+function KeyboardOf(target) {
+  const listeners = [];
+  const isEq = (listener, key) => {
+    return listener.options.caseSensitive ? listener.key == key : listener.key.toLowerCase() == key.toLowerCase();
+  };
+  target.addEventListener("keydown", function({ key }) {
+    for (let listener of listeners) {
+      if (!listener.isUp || !isEq(listener, key))
+        continue;
+      listener.isUp = false;
+      listener.action();
+    }
+  });
+  target.addEventListener("keyup", function({ key }) {
+    for (let listener of listeners) {
+      if (listener.isUp || !isEq(listener, key))
+        continue;
+      listener.isUp = true;
+      listener.sleep();
+      if (listener.options.once) {
+        listeners.splice(listeners.indexOf(listener), 1);
+      }
+    }
+  });
+  const defaultOptions = {
+    caseSensitive: false,
+    once: false
+  };
+  function repeater(key, action, options, speed) {
+    let interval = void 0;
+    on(
+      key,
+      () => {
+        interval = setInterval(action, speed != null ? speed : 50);
+      },
+      () => {
+        clearInterval(interval);
+        interval = void 0;
+      },
+      options
+    );
+  }
+  function on(key, action, sleep, options) {
+    listeners.push({
+      key,
+      action,
+      isUp: true,
+      sleep: sleep || (() => {
+      }),
+      options: __spreadValues(__spreadValues({}, defaultOptions), options || {})
+    });
+  }
+  return {
+    repeater,
+    on
+  };
+}
+
+// src/data/aiTypes.ts
+var aiTypes_default = [
+  {
+    id: 0,
+    src: "cow_1",
+    killScore: 150,
+    health: 500,
+    weightM: 0.8,
+    speed: 95e-5,
+    turnSpeed: 1e-3,
+    scale: 72,
+    drop: ["food", 50]
+  },
+  {
+    id: 1,
+    src: "pig_1",
+    killScore: 200,
+    health: 800,
+    weightM: 0.6,
+    speed: 85e-5,
+    turnSpeed: 1e-3,
+    scale: 72,
+    drop: ["food", 80]
+  },
+  {
+    id: 2,
+    name: "Bull",
+    src: "bull_2",
+    hostile: true,
+    dmg: 20,
+    killScore: 1e3,
+    health: 1800,
+    weightM: 0.5,
+    speed: 94e-5,
+    turnSpeed: 74e-5,
+    scale: 78,
+    viewRange: 800,
+    chargePlayer: true,
+    drop: ["food", 100]
+  },
+  {
+    id: 3,
+    name: "Bully",
+    src: "bull_1",
+    hostile: true,
+    dmg: 20,
+    killScore: 2e3,
+    health: 2800,
+    weightM: 0.45,
+    speed: 1e-3,
+    turnSpeed: 8e-4,
+    scale: 90,
+    viewRange: 900,
+    chargePlayer: true,
+    drop: ["food", 400]
+  },
+  {
+    id: 4,
+    name: "Wolf",
+    src: "wolf_1",
+    hostile: true,
+    dmg: 8,
+    killScore: 500,
+    health: 300,
+    weightM: 0.45,
+    speed: 1e-3,
+    turnSpeed: 2e-3,
+    scale: 84,
+    viewRange: 800,
+    chargePlayer: true,
+    drop: ["food", 200]
+  },
+  {
+    id: 5,
+    name: "Quack",
+    src: "chicken_1",
+    dmg: 8,
+    killScore: 2e3,
+    noTrap: true,
+    health: 300,
+    weightM: 0.2,
+    speed: 18e-4,
+    turnSpeed: 6e-3,
+    scale: 70,
+    drop: ["food", 100]
+  },
+  {
+    id: 6,
+    name: "MOOSTAFA",
+    nameScale: 50,
+    src: "enemy",
+    hostile: true,
+    dontRun: true,
+    fixedSpawn: true,
+    spawnDelay: 6e4,
+    noTrap: true,
+    colDmg: 100,
+    dmg: 40,
+    killScore: 8e3,
+    health: 18e3,
+    weightM: 0.4,
+    speed: 7e-4,
+    turnSpeed: 0.01,
+    scale: 80,
+    spriteMlt: 1.8,
+    leapForce: 0.9,
+    viewRange: 1e3,
+    hitRange: 210,
+    hitDelay: 1e3,
+    chargePlayer: true,
+    drop: ["food", 100]
+  },
+  {
+    id: 7,
+    name: "Treasure",
+    hostile: true,
+    nameScale: 35,
+    src: "crate_1",
+    fixedSpawn: true,
+    spawnDelay: 12e4,
+    colDmg: 200,
+    killScore: 5e3,
+    health: 2e4,
+    weightM: 0.1,
+    speed: 0,
+    turnSpeed: 0,
+    scale: 70,
+    spriteMlt: 1
+  },
+  {
+    id: 8,
+    name: "MOOFIE",
+    src: "wolf_2",
+    hostile: true,
+    fixedSpawn: true,
+    dontRun: true,
+    hitScare: 4,
+    spawnDelay: 3e4,
+    noTrap: true,
+    nameScale: 35,
+    dmg: 10,
+    colDmg: 100,
+    killScore: 3e3,
+    health: 7e3,
+    weightM: 0.45,
+    speed: 15e-4,
+    turnSpeed: 2e-3,
+    scale: 90,
+    viewRange: 800,
+    chargePlayer: true,
+    drop: ["food", 1e3]
+  }
+].map((e) => Object.freeze(e));
+
+// src/utils/getAIType.ts
+function getAIType(IDOrNameOrProp, propValue) {
+  if (propValue !== void 0)
+    return aiTypes_default.find((ai) => ai[IDOrNameOrProp] == propValue);
+  if (typeof IDOrNameOrProp == "string")
+    return aiTypes_default.find((ai) => ai.name == IDOrNameOrProp);
+  if (typeof IDOrNameOrProp == "number")
+    return aiTypes_default.find((ai) => ai.id == IDOrNameOrProp);
+  return void 0;
+}
+
+// src/data/uniqueNames.ts
+var uniqueNames_default = [
+  "Sid",
+  "Steph",
+  "Bmoe",
+  "Romn",
+  "Jononthecool",
+  "Fiona",
+  "Vince",
+  "Nathan",
+  "Nick",
+  "Flappy",
+  "Ronald",
+  "Otis",
+  "Pepe",
+  "Mc Donald",
+  "Theo",
+  "Fabz",
+  "Oliver",
+  "Jeff",
+  "Jimmy",
+  "Helena",
+  "Reaper",
+  "Ben",
+  "Alan",
+  "Naomi",
+  "XYZ",
+  "Clever",
+  "Jeremy",
+  "Mike",
+  "Destined",
+  "Stallion",
+  "Allison",
+  "Meaty",
+  "Sophia",
+  "Vaja",
+  "Joey",
+  "Pendy",
+  "Murdoch",
+  "Theo",
+  "Jared",
+  "July",
+  "Sonia",
+  "Mel",
+  "Dexter",
+  "Quinn",
+  "Milky"
+].map((e) => Object.freeze(e));
+
+// src/utils/getUniqueName.ts
+function getUniqueName(index) {
+  return uniqueNames_default[index];
+}
+
+// src/data/projectiles.ts
+var projectiles_default = [
+  {
+    indx: 0,
+    layer: 0,
+    src: "arrow_1",
+    dmg: 25,
+    speed: 1.6,
+    scale: 103,
+    range: 1e3
+  },
+  {
+    indx: 1,
+    layer: 1,
+    dmg: 25,
+    scale: 20
+  },
+  {
+    indx: 0,
+    layer: 0,
+    src: "arrow_1",
+    dmg: 35,
+    speed: 2.5,
+    scale: 103,
+    range: 1200
+  },
+  {
+    indx: 0,
+    layer: 0,
+    src: "arrow_1",
+    dmg: 30,
+    speed: 2,
+    scale: 103,
+    range: 1200
+  },
+  {
+    indx: 1,
+    layer: 1,
+    dmg: 16,
+    scale: 20
+  },
+  {
+    indx: 0,
+    layer: 0,
+    src: "bullet_1",
+    dmg: 50,
+    speed: 3.6,
+    scale: 160,
+    range: 1400
+  }
+].map((e) => Object.freeze(e));
+
+// src/utils/getProjectiles.ts
+function getProjectile(projectileTypeOrSrc) {
+  if (typeof projectileTypeOrSrc == "string")
+    return projectiles_default.find((projectile) => projectile.src == projectileTypeOrSrc);
+  else {
+    return projectiles_default[projectileTypeOrSrc];
+  }
+}
+
+// src/data/weaponVariants.ts
+var weaponVariants_default = [
+  {
+    id: 0,
+    src: "",
+    xp: 0,
+    val: 1
+  },
+  {
+    id: 1,
+    src: "_g",
+    xp: 3e3,
+    val: 1.1
+  },
+  {
+    id: 2,
+    src: "_d",
+    xp: 7e3,
+    val: 1.18
+  },
+  {
+    id: 3,
+    src: "_r",
+    poison: true,
+    xp: 12e3,
+    val: 1.18
+  }
+].map((e) => Object.freeze(e));
+
+// src/utils/getWeaponVariants.ts
+function getWeaponVariants(id) {
+  return weaponVariants_default.find((e) => id == e.id);
+}
+
 // src/index.ts
 var src_default = MooMooIOClient;
 export {
   HookWebSocket,
-  src_default as default
+  KeyboardOf,
+  src_default as default,
+  getAIType,
+  getAccessory,
+  getGroup,
+  getHat,
+  getItem,
+  getProjectile,
+  getUniqueName,
+  getWeapon,
+  getWeaponVariants
 };
